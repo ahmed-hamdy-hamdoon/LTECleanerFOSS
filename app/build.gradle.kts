@@ -4,18 +4,22 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import java.util.Properties // used by signingConfigs.release (ksProps variable)
+import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.gradle.tasks.PackageAndroidArtifact // used by empty app-metadata.properties
 
 plugins {
-	alias(libs.plugins.androidx.baselineprofile)
 	alias(libs.plugins.android.application)
-	alias(libs.plugins.kotlin.android)
+	//alias(libs.plugins.androidx.baselineprofile)
 }
 kotlin {
 	// Used as defaults for android.kotlinOptions.jvmTarget and android.compileOptions.*Compatibility
-	jvmToolchain(25)
+	//jvmToolchain(25)
+	compilerOptions {
+		extraWarnings.set(true)
+		//jvmTarget = JvmTarget.JVM_24
+	}
 }
-android {
+configure<ApplicationExtension> {
 	compileSdk = 36
 	buildToolsVersion = "36.0.0"
 	namespace = "io.mdp43140.ltecleaner"
@@ -101,9 +105,10 @@ android {
 			)
 		}
 	}
-	baselineProfile {
-		dexLayoutOptimization = true
-	}
+	// Disabled for now because androidx.baselineprofile doesnt support AGP 9.0.0
+	//baselineProfile {
+	//	dexLayoutOptimization = true
+	//}
 	dependenciesInfo {
 		// https://gitlab.com/IzzyOnDroid/repo/-/issues/491
 		includeInApk = false
@@ -133,7 +138,7 @@ dependencies {
 	// Error logger
 	implementation(libs.ael.kt)
 	// baseline profile
-	"baselineProfile"(project(":baselineprofile"))
+	//"baselineProfile"(project(":baselineprofile"))
 	// Tests (AndroidJUnitRunner & JUnit Rules, Assertions)
 	androidTestImplementation(libs.androidx.test.runner)
 	androidTestImplementation(libs.androidx.test.junit)
