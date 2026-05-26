@@ -197,7 +197,7 @@ class FileScanner(private val path: File, context: Context){
 	fun start(): Long {
 		isRunning = true
 		var cycles: Byte = 0
-		var maxCycles: Byte = if (delete) prefs.multiRun.toByte() else 1
+		val maxCycles: Byte = if (delete) prefs.multiRun.toByte() else 1
 
 		// removes the need to 'clean' multiple times to get everything
 		while (cycles < maxCycles) {
@@ -212,7 +212,7 @@ class FileScanner(private val path: File, context: Context){
 			// filter & delete
 			for (file in foundFiles!!){
 				if (filter(file)){ // filter
-					var tv: TextView? = addText?.invoke(context,file.absolutePath,1)
+					val tv: TextView? = addText?.invoke(context,file.absolutePath,1)
 					kilobytesTotal += file.length()
 					if (delete){
 						++filesRemoved
