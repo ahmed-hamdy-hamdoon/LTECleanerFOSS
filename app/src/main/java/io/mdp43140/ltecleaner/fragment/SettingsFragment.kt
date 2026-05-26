@@ -42,14 +42,14 @@ class SettingsFragment: PreferenceFragmentCompat(){
 					!!.toString(Charsets.UTF_8)
 			)
 			val prefsEditor = PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
-			val buffer = StringBuilder()
-			for (key in jsonObject.keys()){
-				val value = jsonObject.get(key)
-				if (prefsEditor?.putData(key,value) == false)
-					buffer.append("\n- $key: $value")
+			val text = buildString {
+				for (key in jsonObject.keys()){
+					val value = jsonObject.get(key)
+					if (prefsEditor?.putData(key,value) != true)
+						append("\n- $key: $value")
+				}
 			}
 			prefsEditor?.apply()
-			val text = buffer.toString()
 			Snackbar.make(
 				(requireActivity() as MainActivity).binding.root,
 				if (text == "") "Settings imported!" else "Unsupported data type:${text}",
