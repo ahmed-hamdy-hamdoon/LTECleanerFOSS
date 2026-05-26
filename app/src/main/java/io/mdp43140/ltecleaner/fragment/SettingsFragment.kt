@@ -65,7 +65,7 @@ class SettingsFragment: PreferenceFragmentCompat(){
 	}
 	private val exportFileLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
 		if (uri != null){
-			val jsonData: String = JSONObject(PreferenceManager.getDefaultSharedPreferences(requireContext()).all).toString(2)
+			val jsonData: String = JSONObject(PreferenceManager.getDefaultSharedPreferences(requireContext()).all as Map<String, Any?>).toString(2)
 			CommonFunctions.writeContentToUri(requireContext(), uri, jsonData)
 			Snackbar.make(
 				(requireActivity() as MainActivity).binding.root,
