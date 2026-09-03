@@ -26,15 +26,36 @@ __LTE Cleaner is 100% free, open source, no ads, and deletes everything it claim
 
 ### Features
 - Clipboard clearing
-- Whitelist
-- Daily cleanup
+- Whitelist & Blacklist customization with comprehensive defaults
+- Daily scheduled cleanup with background work manager
+- **Elevated Access via Shizuku & ADB**:
+  - Clean internal app caches (`/data/data/*/cache`, `/data/user/0/*/cache`, `code_cache`)
+  - Clean system temp directories (`/data/local/tmp`)
+  - Elevated deletion fallback for stubborn or restricted directories
+  - Built-in ADB setup script generator with one-tap copy
+- **Parallel Multi-Threaded Processing**:
+  - High-performance concurrent directory scanning and deletion
+  - Configurable parallel worker slider in Settings (1 to 10 threads)
+- **Accurate Space Calculation**:
+  - Floating-point precision byte calculations across B, KB, MB, and GB
+  - Recursive directory sizing before removal
+- **Secondary Storage Support**:
+  - MicroSD card and external removable drive scanning & cleaning
 
 ### Cleans:
 - Empty folders
 - Logs
 - Temporary files
-- Caches
+- Internal and external app caches
 - Advertisement folders
+- Corpses (leftovers from uninstalled apps)
+- Android APK leftovers and installer caches
+
+### Unit Testing & Quality
+Local JVM unit test suite powered by JUnit 4 (`gradle :app:testDebugUnitTest`) validating:
+- Size formatters and byte converters across all size thresholds
+- Default blacklist regex rules against common junk patterns (`LOST.DIR`, `.tmp`, `.crdownload`, `logs`)
+- Filter and whitelist integrity
 
 To do list (not guaranteed because i'm busy irl):
 - Black background on dark theme?
