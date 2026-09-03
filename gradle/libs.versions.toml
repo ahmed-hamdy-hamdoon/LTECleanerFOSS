@@ -11,6 +11,7 @@ androidxTestJunit = "1.3.0"
 androidxTestRunner = "1.7.0"
 androidxTestUiautomator = "2.3.0"
 androidxWork = "2.11.2"
+junit = "4.13.2"
 leakcanary = "2.14"
 material = "1.14.0"
 shizuku = "13.1.5"
@@ -21,6 +22,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 androidx-gridlayout = { group = "androidx.gridlayout", name = "gridlayout", version.ref = "androidxGridLayout" }
 androidx-kt = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCore" }
 androidx-pref-kt = { group = "androidx.preference", name = "preference", version.ref = "androidxPref" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 androidx-benchmark-macroJunit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "androidxTestBenchmark" }

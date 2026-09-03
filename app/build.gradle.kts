@@ -148,6 +148,7 @@ dependencies {
 	// baseline profile
 	//"baselineProfile"(project(":baselineprofile"))
 	// Tests (AndroidJUnitRunner & JUnit Rules, Assertions)
+	testImplementation(libs.junit)
 	androidTestImplementation(libs.androidx.test.runner)
 	androidTestImplementation(libs.androidx.test.junit)
 }

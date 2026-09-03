@@ -70,8 +70,9 @@
 - [x] `app/src/main/java/io/mdp43140/ltecleaner/PreferenceRepository.kt` - Add parallelProcessing and parallelWorkers properties with defaults
 - [x] `app/src/main/java/io/mdp43140/ltecleaner/CommonFunctions.kt` - Accurate unit conversion for freed bytes (B, KB, MB, GB) with floating point division
 - [x] `app/src/main/java/io/mdp43140/ltecleaner/FileScanner.kt` - Multi-threaded parallel file exploration and deletion with thread-safe counters and recursive directory sizing
+- [x] `app/src/test/java/io/mdp43140/ltecleaner/FormatterAndFilterUnitTest.kt` - Implement fast, focused local JVM unit tests for converters, size formatters, and regex rules following `android-testing-unit`
 
 ## Current Status
-- Completed Steps: 24/24
+- Completed Steps: 25/25
 - Current step in progress: None (All tasks complete)
 - Exact next step: Ready for deployment and runtime testing
