@@ -31,9 +31,17 @@ import io.mdp43140.ltecleaner.App
 import io.mdp43140.ltecleaner.CleanupService
 import io.mdp43140.ltecleaner.CommonFunctions
 import io.mdp43140.ltecleaner.MainActivity
+import io.mdp43140.ltecleaner.AdbScriptDialog
+import io.mdp43140.ltecleaner.shizuku.ShizukuManager
 import io.mdp43140.ltecleaner.ScheduledWorker.Companion.enqueueWork
 import io.mdp43140.ltecleaner.R
 class SettingsFragment: PreferenceFragmentCompat(){
+	private val shizukuStateListener = {
+		activity?.runOnUiThread {
+			updateShizukuPreference()
+		}
+		Unit
+	}
 	private val importFileLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
 		if (uri != null){
 			val jsonObject = JSONObject(
@@ -138,7 +146,74 @@ class SettingsFragment: PreferenceFragmentCompat(){
 			exportFileLauncher.launch("LTECleaner_settings.json")
 			false
 		}
+		findPreference<Preference>("adb_script_helper")?.setOnPreferenceClickListener {
+			AdbScriptDialog.show(requireContext())
+			true
+		}
+		findPreference<Preference>("shizuku_status")?.setOnPreferenceClickListener {
+			handleShizukuStatusClick()
+			true
+		}
+		updateShizukuPreference()
 	}
+
+	override fun onResume() {
+		super.onResume()
+		ShizukuManager.registerListener(shizukuStateListener)
+		updateShizukuPreference()
+	}
+
+	override fun onPause() {
+		super.onPause()
+		ShizukuManager.unregisterListener(shizukuStateListener)
+	}
+
+	private fun updateShizukuPreference() {
+		val pref = findPreference<Preference>("shizuku_status") ?: return
+		val ctx = context ?: return
+		when (ShizukuManager.getState(ctx)) {
+			ShizukuManager.ShizukuState.AUTHORIZED -> {
+				pref.setTitle(R.string.shizuku_status_title)
+				pref.setSummary(R.string.shizuku_status_authorized)
+			}
+			ShizukuManager.ShizukuState.AVAILABLE_UNAUTHORIZED -> {
+				pref.setTitle(R.string.shizuku_status_title)
+				pref.setSummary(R.string.shizuku_status_unauthorized)
+			}
+			ShizukuManager.ShizukuState.DEAD -> {
+				pref.setTitle(R.string.shizuku_status_title)
+				pref.setSummary(R.string.shizuku_status_dead)
+			}
+			ShizukuManager.ShizukuState.NOT_INSTALLED -> {
+				pref.setTitle(R.string.shizuku_status_title)
+				pref.setSummary(R.string.shizuku_status_not_installed)
+			}
+		}
+	}
+
+	private fun handleShizukuStatusClick() {
+		val ctx = requireContext()
+		when (ShizukuManager.getState(ctx)) {
+			ShizukuManager.ShizukuState.AUTHORIZED -> {
+				val success = ShizukuManager.grantStoragePermissionsViaShizuku(ctx.packageName)
+				if (success) {
+					Toast.makeText(ctx, R.string.storage_permission_granted_toast, Toast.LENGTH_SHORT).show()
+				} else {
+					Toast.makeText(ctx, "Shizuku is active & authorized!", Toast.LENGTH_SHORT).show()
+				}
+			}
+			ShizukuManager.ShizukuState.AVAILABLE_UNAUTHORIZED -> {
+				ShizukuManager.requestPermission()
+			}
+			ShizukuManager.ShizukuState.DEAD -> {
+				ShizukuManager.openShizukuApp(ctx)
+			}
+			ShizukuManager.ShizukuState.NOT_INSTALLED -> {
+				ShizukuManager.openShizukuApp(ctx)
+			}
+		}
+	}
+
 	override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
 		setPreferencesFromResource(R.xml.preferences,rootKey)
 	}

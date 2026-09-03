@@ -74,16 +74,17 @@ object CommonFunctions {
 			outputStream.write(content.toByteArray())
 		}
 	}
-	fun convertSize(length: Long): String {
+	fun convertSize(bytes: Long): String {
+		if (bytes <= 0) return "0 B"
 		val format = DecimalFormat("#.##")
-		val kib:Long = 1024
-		val mib:Long = 1048576
-		return if (length > mib) {
-			format.format(length / mib) + " MB"
-		} else if (length > kib) {
-			format.format(length / kib) + " KB"
-		} else {
-			format.format(length) + " B"
+		val kib = 1024.0
+		val mib = 1024.0 * 1024.0
+		val gib = 1024.0 * 1024.0 * 1024.0
+		return when {
+			bytes >= gib -> format.format(bytes / gib) + " GB"
+			bytes >= mib -> format.format(bytes / mib) + " MB"
+			bytes >= kib -> format.format(bytes / kib) + " KB"
+			else -> "$bytes B"
 		}
 	}
 }

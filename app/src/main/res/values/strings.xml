@@ -77,6 +77,39 @@
 	<string name="license_sum">Licensed under GPL v3 license</string>
 	<string name="setDefaults">Set defaults</string>
 	<string name="about">About</string>
+
+	<!-- Shizuku & ADB Permissions & Storage -->
+	<string name="elevated_access_title">Elevated Access (Shizuku &amp; ADB)</string>
+	<string name="shizuku_status_title">Shizuku Service Status</string>
+	<string name="shizuku_status_authorized">Connected &amp; Authorized (Elevated Access Active)</string>
+	<string name="shizuku_status_unauthorized">Shizuku Running — Tap to Authorize</string>
+	<string name="shizuku_status_dead">Shizuku Not Running (Tap to Open / Setup)</string>
+	<string name="shizuku_status_not_installed">Shizuku Not Installed (Tap to Install)</string>
+	<string name="use_shizuku_title">Use Shizuku for Elevated Cleaning</string>
+	<string name="use_shizuku_sum">Bypasses Android 11+ storage restrictions on Android/data and enables deep internal cleaning</string>
+	<string name="clean_internal_title">Clean Internal Storage Caches</string>
+	<string name="clean_internal_sum">Cleans app caches and temp files in internal /data/data and /data/local/tmp (requires Shizuku or root)</string>
+	<string name="clean_sd_card_title">Clean Secondary SD Cards</string>
+	<string name="clean_sd_card_sum">Scans and cleans removable MicroSD cards and external storage mounts</string>
+	<string name="adb_script_title">ADB Permission Setup Script</string>
+	<string name="adb_script_sum">View and copy commands to grant full storage access or start Shizuku via ADB</string>
+	<string name="adb_script_dialog_title">ADB Storage &amp; Elevated Setup</string>
+	<string name="adb_script_dialog_desc">Run the following commands via your computer (ADB) or a local shell like Termux to grant LTE Cleaner unrestricted access to storage:</string>
+	<string name="copy_adb_commands">Copy Commands</string>
+	<string name="adb_copied_toast">ADB commands copied to clipboard!</string>
+	<string name="grant_via_shizuku">Grant via Shizuku</string>
+	<string name="storage_permission_granted_toast">Storage permissions granted via Shizuku!</string>
+	<string name="shizuku_active_chip">Shizuku Active</string>
+	<string name="shizuku_inactive_chip">Standard Access</string>
+	<string name="scanning_external">Scanning External Storage…</string>
+	<string name="scanning_sdcard">Scanning SD Card: %s…</string>
+	<string name="scanning_internal">Scanning Internal Storage Caches…</string>
+	<string name="parallel_processing_category">Performance &amp; Concurrency</string>
+	<string name="parallel_search_delete_title">Parallel search and delete</string>
+	<string name="parallel_search_delete_sum">Use multi-threaded workers for faster scanning and file deletion</string>
+	<string name="parallel_workers_title">Parallel workers</string>
+	<string name="parallel_workers_sum">Number of concurrent worker threads (1 to 10)</string>
+
 	<string-array name="themes_val">
 		<item>Follow system</item>
 		<item>Light</item>

@@ -23,9 +23,12 @@ class App: Application(){
 	override fun onCreate(){
 		super.onCreate()
 		prefs = PreferenceRepository(this)
-		// Stores how many times the app has been opened,
-		// Can also be used for first run related codes in the future, who knows...
-		prefs!!.runCount = prefs!!.runCount + 1
+		val isFirstInit = !prefs!!.isDefaultsConfigured()
+		prefs!!.initializeDefaultsIfNecessary()
+		// Stores how many times the app has been opened
+		if (!isFirstInit) {
+			prefs!!.runCount = prefs!!.runCount + 1
+		}
 		// Update theme and apply dynamic color
 		CommonFunctions.updateTheme(this,prefs!!.theme)
 		if (prefs!!.dynamicColor){

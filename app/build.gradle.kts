@@ -36,6 +36,12 @@ configure<ApplicationExtension> {
 		}
 	}
 	signingConfigs {
+		create("debugConfig") {
+			storeFile = file("${rootDir}/debug.keystore")
+			storePassword = "android"
+			keyAlias = "androiddebugkey"
+			keyPassword = "android"
+		}
 		create("main"){
 			val ksPropsFile = rootProject.file(".signing/keystore.properties")
 			if (ksPropsFile.exists()){
@@ -58,6 +64,7 @@ configure<ApplicationExtension> {
 		debug {
 			applicationIdSuffix = ".debug"
 			isDebuggable = true
+			signingConfig = signingConfigs.getByName("debugConfig")
 		}
 		release {
 			isMinifyEnabled = true
@@ -133,10 +140,11 @@ dependencies {
 	implementation(libs.androidx.work.runtime)
 	// MD3 on different Android versions
 	implementation(libs.material)
-	// Leak detection
-	debugImplementation(libs.leakcanary.android)
 	// Error logger
 	implementation(libs.ael.kt)
+	// Shizuku API & Provider
+	implementation(libs.shizuku.api)
+	implementation(libs.shizuku.provider)
 	// baseline profile
 	//"baselineProfile"(project(":baselineprofile"))
 	// Tests (AndroidJUnitRunner & JUnit Rules, Assertions)

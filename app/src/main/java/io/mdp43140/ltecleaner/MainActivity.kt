@@ -22,6 +22,8 @@ import io.mdp43140.ltecleaner.R
 import io.mdp43140.ltecleaner.databinding.ActivityMainBinding
 import io.mdp43140.ltecleaner.fragment.MainFragment
 import io.mdp43140.ltecleaner.fragment.BlacklistFragment
+import io.mdp43140.ltecleaner.AdbScriptDialog
+import io.mdp43140.ltecleaner.shizuku.ShizukuManager
 import io.mdp43140.ltecleaner.fragment.WhitelistFragment
 import io.mdp43140.ltecleaner.fragment.SettingsFragment
 class MainActivity: AppCompatActivity(){
@@ -29,6 +31,7 @@ class MainActivity: AppCompatActivity(){
 	lateinit var dialogBuilder: MaterialAlertDialogBuilder
 	override fun onCreate(savedInstanceState: Bundle?){
 		super.onCreate(savedInstanceState)
+		ShizukuManager.init()
 		setContentView(binding.root)
 		// Set black background
 		if (CommonFunctions.isDarkThemeActive(this) && App.prefs!!.pitchBlack)
@@ -72,10 +75,15 @@ class MainActivity: AppCompatActivity(){
 				commit()
 			}
 	}
+	override fun onDestroy() {
+		super.onDestroy()
+		ShizukuManager.destroy()
+	}
+
 	/**
 	 * Handles whether the user grants permission.
 	 * Shows an alert dialog asking
-	 * user to give storage permission.
+	 * user to give storage permission or configure via Shizuku / ADB.
 	 */
 	override fun onRequestPermissionsResult(
 		requestCode:Int,
@@ -83,35 +91,35 @@ class MainActivity: AppCompatActivity(){
 		grantResults:IntArray
 	){
 		super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-		if (
-			Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-			permissions.contains("android.permission.READ_EXTERNAL_STORAGE") &&
-			permissions.contains("android.permission.WRITE_EXTERNAL_STORAGE") &&
-			permissions.contains("android.permission.MANAGE_EXTERNAL_STORAGE")){
-			// Since Android 13, external storage access wasnt longer a thing anymore
-			Snackbar.make(
-				binding.root,
-				"Sadly, Android 13+ no longer have access to external storage",
-				Snackbar.LENGTH_SHORT
-			).let {
-				it.setAction(android.R.string.ok){ _: View ->
-					it.dismiss()
-				}
-				it.show()
-			}
-		}
-		else if (
-			requestCode == 1 &&
-			grantResults.isNotEmpty() &&
-			grantResults[0] != PackageManager.PERMISSION_GRANTED)
-			dialogBuilder.setTitle(R.string.permission_needed)
-				.setMessage(getString(R.string.grantPermissions_sum) + permissions.map { "\n- " + it.replaceFirst("android.permission.","") }.joinToString(""))
-				.setPositiveButton(R.string.settings){ dialogInterface: DialogInterface, _: Int ->
+		if (grantResults.isNotEmpty() && grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+			val builder = MaterialAlertDialogBuilder(this)
+				.setTitle(R.string.permission_needed)
+				.setMessage(getString(R.string.grantPermissions_sum) + "\n\n" +
+					getString(R.string.adb_script_dialog_desc))
+				.setPositiveButton(R.string.settings) { dialogInterface: DialogInterface, _: Int ->
 					startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-						data = Uri.fromParts("package",packageName,null)
+						data = Uri.fromParts("package", packageName, null)
 					})
 					dialogInterface.dismiss()
 				}
-				.show()
+				.setNeutralButton("ADB / Shizuku") { dialogInterface: DialogInterface, _: Int ->
+					AdbScriptDialog.show(this)
+					dialogInterface.dismiss()
+				}
+				.setNegativeButton(android.R.string.cancel) { dialogInterface: DialogInterface, _: Int ->
+					dialogInterface.dismiss()
+				}
+
+			if (ShizukuManager.hasPermission()) {
+				builder.setPositiveButton(R.string.grant_via_shizuku) { dialogInterface: DialogInterface, _: Int ->
+					val success = ShizukuManager.grantStoragePermissionsViaShizuku(packageName)
+					if (success) {
+						Toast.makeText(this, R.string.storage_permission_granted_toast, Toast.LENGTH_SHORT).show()
+					}
+					dialogInterface.dismiss()
+				}
+			}
+			builder.show()
+		}
 	}
 }

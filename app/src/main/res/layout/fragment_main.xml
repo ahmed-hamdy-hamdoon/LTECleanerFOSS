@@ -41,6 +41,15 @@
 		</HorizontalScrollView>
 	</ScrollView>
 
+	<com.google.android.material.chip.Chip
+		android:id="@+id/accessStatusChip"
+		style="@style/Widget.Material3.Chip.Assist"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center"
+		android:text="@string/shizuku_inactive_chip"
+		app:chipIcon="@drawable/ic_shield" />
+
 	<TextView
 		android:id="@+id/statusTextView"
 		android:layout_width="wrap_content"

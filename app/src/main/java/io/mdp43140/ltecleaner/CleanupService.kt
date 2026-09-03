@@ -48,12 +48,12 @@ class CleanupService: Service(){
 				fs.delete = true
 				fs.updateProgress = ::updatePercentage
 
-				// kilobytes found/freed text
-				val kilobytesTotal = fs.start()
+				// bytes found/freed text
+				val bytesTotal = fs.start()
 				val title =
 					getString(R.string.freed) +
 					" " +
-					CommonFunctions.convertSize(kilobytesTotal)
+					CommonFunctions.convertSize(bytesTotal)
 				stopForeground(STOP_FOREGROUND_REMOVE)
 				CommonFunctions.sendNotification(
 					applicationContext,

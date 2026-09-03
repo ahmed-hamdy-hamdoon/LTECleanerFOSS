@@ -31,6 +31,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import io.mdp43140.ltecleaner.AdbScriptDialog
 import io.mdp43140.ltecleaner.App
 import io.mdp43140.ltecleaner.CommonFunctions.convertSize
 import io.mdp43140.ltecleaner.CommonFunctions.makeStatusNotification
@@ -38,12 +39,20 @@ import io.mdp43140.ltecleaner.CommonFunctions.sendNotification
 import io.mdp43140.ltecleaner.Constants
 import io.mdp43140.ltecleaner.FileScanner
 import io.mdp43140.ltecleaner.MainActivity
+import io.mdp43140.ltecleaner.shizuku.ShizukuManager
 import io.mdp43140.ltecleaner.databinding.FragmentMainBinding
 import io.mdp43140.ltecleaner.R
 import java.io.File
 import java.util.Locale
 class MainFragment: BaseFragment(){
 	private lateinit var binding: FragmentMainBinding
+
+	private val shizukuStateListener = {
+		activity?.runOnUiThread {
+			updateAccessChip()
+		}
+		Unit
+	}
 	override fun onCreateView(
 		inflater: LayoutInflater,
 		container: ViewGroup?,
@@ -73,13 +82,62 @@ class MainFragment: BaseFragment(){
 			cleanBtn.setOnClickListener { clean() }
 			settingsBtn.setOnClickListener { (requireActivity() as MainActivity).startFragment(SettingsFragment()) }
 			whitelistBtn.setOnClickListener { (requireActivity() as MainActivity).startFragment(WhitelistFragment()) }
+			accessStatusChip?.setOnClickListener { handleChipClick() }
 		}
+		updateAccessChip()
 		addText(String.format(
 			"%s v%s",
 			getString(R.string.app_name),
 			requireContext().packageManager.getPackageInfo(requireContext().packageName,0).versionName
 		))
 		return binding.root
+	}
+
+	override fun onResume() {
+		super.onResume()
+		ShizukuManager.registerListener(shizukuStateListener)
+		updateAccessChip()
+	}
+
+	override fun onPause() {
+		super.onPause()
+		ShizukuManager.unregisterListener(shizukuStateListener)
+	}
+
+	private fun updateAccessChip() {
+		if (!isAdded) return
+		val ctx = context ?: return
+		binding.accessStatusChip?.let { chip ->
+			when (ShizukuManager.getState(ctx)) {
+				ShizukuManager.ShizukuState.AUTHORIZED -> {
+					chip.text = getString(R.string.shizuku_active_chip)
+					chip.setChipIconResource(R.drawable.ic_shield)
+				}
+				ShizukuManager.ShizukuState.AVAILABLE_UNAUTHORIZED -> {
+					chip.text = "Authorize Shizuku"
+					chip.setChipIconResource(R.drawable.ic_shield)
+				}
+				else -> {
+					chip.text = getString(R.string.shizuku_inactive_chip)
+					chip.setChipIconResource(R.drawable.ic_shield)
+				}
+			}
+		}
+	}
+
+	private fun handleChipClick() {
+		val ctx = requireContext()
+		when (ShizukuManager.getState(ctx)) {
+			ShizukuManager.ShizukuState.AUTHORIZED -> {
+				AdbScriptDialog.show(ctx)
+			}
+			ShizukuManager.ShizukuState.AVAILABLE_UNAUTHORIZED -> {
+				ShizukuManager.requestPermission()
+			}
+			else -> {
+				AdbScriptDialog.show(ctx)
+			}
+		}
 	}
 
 	fun analyze(){
@@ -169,13 +227,13 @@ class MainFragment: BaseFragment(){
 				addText(getString(R.string.failed_scan),Color.RED)
 			}
 
-			// run the scan and put KBs found/freed text
-			val kilobytesTotal = fs.start()
+			// run the scan and put bytes found/freed text
+			val bytesTotal = fs.start()
 			requireActivity().runOnUiThread {
 				binding.apply {
 					statusTextView.text =
 						getString(if (deleteCache) R.string.freed else R.string.found) +
-						" " + convertSize(kilobytesTotal)
+						" " + convertSize(bytesTotal)
 					cleanBtn.isEnabled = !FileScanner.isRunning
 					analyzeBtn.isEnabled = !FileScanner.isRunning
 					fileScrollView.post { fileScrollView.fullScroll(ScrollView.FOCUS_DOWN) }
@@ -266,6 +324,15 @@ class MainFragment: BaseFragment(){
 	 */
 	private fun requestWriteExternalPermission() {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R){ // Android 11+
+			// Try auto-granting via Shizuku if available and not yet external storage manager
+			if (!Environment.isExternalStorageManager() && ShizukuManager.hasPermission()) {
+				val granted = ShizukuManager.grantStoragePermissionsViaShizuku(requireContext().packageName)
+				if (granted && Environment.isExternalStorageManager()) {
+					Toast.makeText(requireActivity(), R.string.storage_permission_granted_toast, Toast.LENGTH_SHORT).show()
+					return
+				}
+			}
+
 			requireActivity().requestPermissions(arrayOf(
 				Manifest.permission.READ_EXTERNAL_STORAGE,
 				Manifest.permission.WRITE_EXTERNAL_STORAGE,

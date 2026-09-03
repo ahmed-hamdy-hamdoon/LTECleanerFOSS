@@ -1,6 +1,6 @@
 [versions]
 ael = "1.0.1-hf"
-agp = "9.2.1"
+agp = "9.1.1"
 androidxAppcompat = "1.7.1"
 androidxCore = "1.18.0"
 androidxGridLayout = "1.1.0"
@@ -13,6 +13,7 @@ androidxTestUiautomator = "2.3.0"
 androidxWork = "2.11.2"
 leakcanary = "2.14"
 material = "1.14.0"
+shizuku = "13.1.5"
 
 [libraries]
 ael-kt = { group = "com.github.mdp43140.ael", name = "ael_kt", version.ref = "ael" }
@@ -20,6 +21,8 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 androidx-gridlayout = { group = "androidx.gridlayout", name = "gridlayout", version.ref = "androidxGridLayout" }
 androidx-kt = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCore" }
 androidx-pref-kt = { group = "androidx.preference", name = "preference", version.ref = "androidxPref" }
+shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
+shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
 androidx-benchmark-macroJunit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "androidxTestBenchmark" }
 androidx-test-espresso = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidxTestEspresso" }
 androidx-test-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJunit" }

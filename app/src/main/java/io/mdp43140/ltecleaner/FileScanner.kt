@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 package io.mdp43140.ltecleaner
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
@@ -13,16 +14,23 @@ import android.widget.TextView
 import io.mdp43140.ltecleaner.fragment.BlacklistFragment
 import io.mdp43140.ltecleaner.fragment.WhitelistFragment
 import io.mdp43140.ltecleaner.PreferenceRepository
+import io.mdp43140.ltecleaner.shizuku.ShizukuManager
 import java.io.File
+import java.util.Collections
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+
 class FileScanner(private val path: File, context: Context){
-	// TODO: Ability to clean SD Card? Already tried SAF implementation, but its really hard, and soon i realized it has storage access restrictions: https://developer.android.com/training/data-storage/shared/documents-files#document-tree-access-restrictions
-	// TODO: do whitelist & blacklist system in the same function instead of being separate
 	private var prefs: PreferenceRepository = App.prefs!!
 	private val context = context
 	private var res: Resources = context.resources
-	private var filesRemoved = 0
-	private var kilobytesTotal: Long = 0
+	private var filesRemoved = AtomicInteger(0)
+	private var bytesTotal = AtomicLong(0)
 	var delete = false
 	var autoWhite = prefs.autoWhite
 	var corpse = prefs.cleanCorpse
@@ -32,11 +40,34 @@ class FileScanner(private val path: File, context: Context){
 	var addText: ((context: Context, path: String, type: Int) -> TextView?)? = null
 	private var installedPackages = getInstalledPackages()
 	private var guiScanProgressMax = 0
-	private var guiScanProgressProgress = 0
+	private var guiScanProgressProgress = AtomicInteger(0)
 	private var foundFiles: ArrayList<File>? = null
 
 	/**
-	 * Used to generate a list of all files on device
+	 * Accurately calculates size of a file or directory in bytes.
+	 */
+	private fun calculatePathBytes(file: File): Long {
+		return try {
+			if (!file.exists()) return 0L
+			if (file.isFile) {
+				file.length()
+			} else if (file.isDirectory) {
+				var size = 0L
+				file.walkTopDown().maxDepth(5).forEach { child ->
+					if (child.isFile) {
+						size += child.length()
+					}
+				}
+				size
+			} else 0L
+		} catch (_: Exception) {
+			0L
+		}
+	}
+
+	/**
+	 * Used to generate a list of all files on device.
+	 * If parallel processing is enabled, subdirectories are explored across worker threads.
 	 * @param parentDirectory where to start searching from
 	 * @return List of all files on device (besides whitelisted ones)
 	 */
@@ -45,7 +76,7 @@ class FileScanner(private val path: File, context: Context){
 		val files = parentDirectory.listFiles()
 		if (files != null) {
 			for (file in files) {
-				if (file != null && !isWhiteListed(file)) { // hopefully to fix crashes on a very limited number of devices && won't touch if whitelisted
+				if (file != null && !isWhiteListed(file)) {
 					if (file.isDirectory) { // folder
 						if (autoWhite) { // if auto whitelist enabled
 							if (!autoWhiteList(file)) inFiles.add(file) // if file is not in autowhitelist index, add it
@@ -54,9 +85,171 @@ class FileScanner(private val path: File, context: Context){
 					} else inFiles.add(file) // add file
 				}
 			}
+		} else if (prefs.useShizuku && ShizukuManager.hasPermission() && parentDirectory.isDirectory) {
+			// Elevated fallback for restricted directories (e.g. Android/data, Android/obb, or internal app caches)
+			val elevatedNames = ShizukuManager.listFilesElevated(parentDirectory.absolutePath)
+			for (name in elevatedNames) {
+				val child = File(parentDirectory, name)
+				if (!isWhiteListed(child)) {
+					inFiles.add(child)
+					// Only recurse into subdirectories if needed (e.g. Android data/obb or app caches)
+					if (name == "data" || name == "obb" || name == "cache" || name == "code_cache" ||
+						parentDirectory.name == "data" || parentDirectory.name == "obb" || parentDirectory.name == "Android" ||
+						parentDirectory.name == "cache" || parentDirectory.name == "code_cache"
+					) {
+						inFiles.addAll(getListFiles(child))
+					}
+				}
+			}
 		}
 		return inFiles
 	}
+
+	/**
+	 * Parallel file search traversing directory trees concurrently across the configured number of workers.
+	 */
+	private fun getListFilesParallel(roots: List<File>, workerCount: Int): ArrayList<File> {
+		val resultList = Collections.synchronizedList(ArrayList<File>())
+		val executor = Executors.newFixedThreadPool(workerCount.coerceIn(1, 10))
+		val activeTasks = AtomicInteger(0)
+		val visitedPaths = ConcurrentHashMap.newKeySet<String>()
+
+		fun scanDirectory(dir: File) {
+			try {
+				if (visitedPaths.add(dir.absolutePath)) {
+					val files = dir.listFiles()
+					if (files != null) {
+						for (file in files) {
+							if (file != null && !isWhiteListed(file)) {
+								if (file.isDirectory) {
+									if (autoWhite) {
+										if (!autoWhiteList(file)) resultList.add(file)
+									} else {
+										resultList.add(file)
+									}
+									// Dispatch subdirectory exploration to executor pool
+									activeTasks.incrementAndGet()
+									executor.execute {
+										try {
+											scanDirectory(file)
+										} finally {
+											activeTasks.decrementAndGet()
+										}
+									}
+								} else {
+									resultList.add(file)
+								}
+							}
+						}
+					} else if (prefs.useShizuku && ShizukuManager.hasPermission() && dir.isDirectory) {
+						val elevatedNames = ShizukuManager.listFilesElevated(dir.absolutePath)
+						for (name in elevatedNames) {
+							val child = File(dir, name)
+							if (!isWhiteListed(child)) {
+								resultList.add(child)
+								if (name == "data" || name == "obb" || name == "cache" || name == "code_cache" ||
+									dir.name == "data" || dir.name == "obb" || dir.name == "Android" ||
+									dir.name == "cache" || dir.name == "code_cache"
+								) {
+									activeTasks.incrementAndGet()
+									executor.execute {
+										try {
+											scanDirectory(child)
+										} finally {
+											activeTasks.decrementAndGet()
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			} catch (_: Exception) {
+			}
+		}
+
+		for (root in roots) {
+			if (root.exists() && !isWhiteListed(root)) {
+				activeTasks.incrementAndGet()
+				executor.execute {
+					try {
+						scanDirectory(root)
+					} finally {
+						activeTasks.decrementAndGet()
+					}
+				}
+			}
+		}
+
+		// Wait for all recursive tasks to finish processing
+		while (activeTasks.get() > 0) {
+			try {
+				Thread.sleep(25)
+			} catch (_: InterruptedException) {
+				break
+			}
+		}
+
+		executor.shutdown()
+		try {
+			executor.awaitTermination(30, TimeUnit.SECONDS)
+		} catch (_: InterruptedException) {
+		}
+
+		return ArrayList(resultList)
+	}
+
+	/**
+	 * Discovers and scans secondary external storage (MicroSD cards)
+	 */
+	private fun getSecondarySdCardFiles(): ArrayList<File> {
+		val result = ArrayList<File>()
+		if (!prefs.cleanSdCard) return result
+		val sdDirs = ShizukuManager.getSecondaryStorageDirs(context)
+		for (sd in sdDirs) {
+			if (!isWhiteListed(sd)) {
+				addText?.invoke(context, String.format(context.getString(R.string.scanning_sdcard), sd.name), 0)
+				result.addAll(getListFiles(sd))
+			}
+		}
+		return result
+	}
+
+	/**
+	 * Discovers and scans internal storage app caches and tmp directory
+	 */
+	private fun getInternalStorageFiles(): ArrayList<File> {
+		val result = ArrayList<File>()
+		if (!prefs.cleanInternal || !prefs.useShizuku || !ShizukuManager.hasPermission()) {
+			return result
+		}
+		addText?.invoke(context, context.getString(R.string.scanning_internal), 0)
+
+		// 1. /data/local/tmp
+		val tmpDir = File("/data/local/tmp")
+		if (!isWhiteListed(tmpDir)) {
+			result.addAll(getListFiles(tmpDir))
+		}
+
+		// 2. /data/data and /data/user/0 app cache directories
+		val dataDirs = listOf(File("/data/data"), File("/data/user/0"))
+		for (parent in dataDirs) {
+			val appDirs = ShizukuManager.listFilesElevated(parent.absolutePath)
+			for (pkg in appDirs) {
+				if (pkg == context.packageName) continue // Skip our own app's cache while running
+				val cacheDir = File(parent, "$pkg/cache")
+				if (!isWhiteListed(cacheDir)) {
+					result.addAll(getListFiles(cacheDir))
+				}
+				val codeCacheDir = File(parent, "$pkg/code_cache")
+				if (!isWhiteListed(codeCacheDir)) {
+					result.addAll(getListFiles(codeCacheDir))
+				}
+			}
+		}
+		return result
+	}
+
 	private fun getInstalledPackages(): ArrayList<String> {
 		val pm = context.packageManager
 		val pkgs = pm.getInstalledApplications(PackageManager.GET_META_DATA)
@@ -68,10 +261,7 @@ class FileScanner(private val path: File, context: Context){
 	}
 
 	/**
-	 * Runs a for each loop through the black/white list, and compares the path of the file to each path in
-	 * the list
-	 * @param file file to check if in the whitelist
-	 * @return true if is the file is in the black/white list, false if not
+	 * Checks if the file or folder is whitelisted.
 	 */
 	private fun isWhiteListed(file: File): Boolean {
 		val absolutePath = file.absolutePath
@@ -82,6 +272,7 @@ class FileScanner(private val path: File, context: Context){
 		}
 		return false
 	}
+
 	private fun isBlackListed(file: File): Boolean {
 		val absolutePath = file.absolutePath
 		for (pattern in blacklist){
@@ -91,10 +282,9 @@ class FileScanner(private val path: File, context: Context){
 	}
 
 	/**
-	 * Runs before anything is filtered/cleaned. Automatically adds folders to the whitelist based on
-	 * the name of the folder itself
-	 * @param file file to check whether it should be added to the whitelist
+	 * Automatically adds protected folders to whitelist based on pattern.
 	 */
+	@Synchronized
 	private fun autoWhiteList(file: File): Boolean {
 		for (protectedFile in autoWhitelist){
 			val whiteLists = whitelist
@@ -113,11 +303,17 @@ class FileScanner(private val path: File, context: Context){
 	}
 
 	/**
-	 * Runs as for each loop through the filter, and checks if the file matches any filters
-	 * @param file file to check
-	 * @return true if the file matches certain rules, otherwise false
+	 * Evaluates whether the given file or directory matches cleanup criteria.
 	 */
 	fun filter(file: File): Boolean {
+		// Internal cache and temporary files filter
+		if (prefs.cleanInternal && (
+			file.parentFile?.name == "cache" ||
+			file.parentFile?.name == "code_cache" ||
+			file.absolutePath.startsWith("/data/local/tmp") ||
+			file.absolutePath.contains("/cache/")
+		)) return true
+
 		if (
 			// corpse checking
 			// Android/Data/[file != .nomedia]
@@ -144,33 +340,19 @@ class FileScanner(private val path: File, context: Context){
 		return false
 	}
 
-	/**
-	 * lists the contents of the file to an array, if the array length is 0, then return true, else
-	 * false
-	 * @param directory directory to test
-	 * @return true if empty, false if containing a file(s)
-	 */
 	private fun isDirectoryEmpty(directory: File): Boolean {
-		// Not folder
 		if (!directory.isDirectory) return false
-		// Empty folder // Folders with another folder and empty file
 		val list = directory.list()
-		// access denied folder (eg. Android/data)
 		if (list == null) return false
-		return list.isNullOrEmpty() // || list!!.all { child ->
-//		// Another folder
-//		if (child.isDirectory) isDirectoryEmpty(child)
-//		// Empty file
-//		else isFileEmpty(child)
-//	}
+		return list.isNullOrEmpty()
 	}
+
 	private fun isFileEmpty(file: File): Boolean {
 		return file.isFile && file.length() == 0L
 	}
 
 	/**
-	 * Adds paths to the white list that are not to be cleaned. As well as adds extensions to filter.
-	 * 'generic', and 'apk' should be assigned by calling preferences.getBoolean()
+	 * Configures filters based on user preferences.
 	 */
 	fun setFilters(generic: Boolean, apk: Boolean){
 		filters.clear()
@@ -194,49 +376,119 @@ class FileScanner(private val path: File, context: Context){
 		}
 	}
 
+	/**
+	 * Starts the scan and cleanup routine.
+	 * Respects user's parallel search and parallel delete settings with configurable worker count (1-10).
+	 * Accurately tracks bytes found or freed.
+	 */
 	fun start(): Long {
 		isRunning = true
 		var cycles: Byte = 0
 		val maxCycles: Byte = if (delete) prefs.multiRun.toByte() else 1
+		val isParallel = prefs.parallelProcessing
+		val workerCount = prefs.parallelWorkers.coerceIn(1, 10)
 
 		// removes the need to 'clean' multiple times to get everything
 		while (cycles < maxCycles) {
-
 			// cycle indicator
-			addText?.invoke(context,"Running Cycle " + cycles + "/" + maxCycles,0)
+			addText?.invoke(context, "Running Cycle " + cycles + "/" + maxCycles, 0)
 
-			// find/scan files
-			if (foundFiles == null) foundFiles = getListFiles(path)
+			// 1. Find / scan files
+			if (foundFiles == null) {
+				foundFiles = ArrayList<File>()
+				addText?.invoke(context, context.getString(R.string.scanning_external), 0)
+
+				if (isParallel && workerCount > 1) {
+					// Gather roots to scan in parallel
+					val scanRoots = ArrayList<File>()
+					scanRoots.add(path)
+					if (prefs.cleanSdCard) {
+						scanRoots.addAll(ShizukuManager.getSecondaryStorageDirs(context))
+					}
+					foundFiles!!.addAll(getListFilesParallel(scanRoots, workerCount))
+					foundFiles!!.addAll(getInternalStorageFiles())
+				} else {
+					foundFiles!!.addAll(getListFiles(path))
+					foundFiles!!.addAll(getSecondarySdCardFiles())
+					foundFiles!!.addAll(getInternalStorageFiles())
+				}
+			}
+
 			guiScanProgressMax = guiScanProgressMax + foundFiles!!.size
+			val filesSnapshot = foundFiles!!
 
-			// filter & delete
-			for (file in foundFiles!!){
-				if (filter(file)){ // filter
-					val tv: TextView? = addText?.invoke(context,file.absolutePath,1)
-					kilobytesTotal += file.length()
-					if (delete){
-						++filesRemoved
-						// deletion
-						val isDeleted = if (file.isDirectory) file.deleteRecursively() else file.delete()
-						// failed to remove file and the textView is visible (not null)
-						if (!isDeleted){
-							// error effect - red looks too concerning
-							tv!!.setTextColor(Color.GRAY)
+			// 2. Filter & Delete files
+			if (isParallel && workerCount > 1) {
+				val executor = Executors.newFixedThreadPool(workerCount)
+				for (file in filesSnapshot) {
+					executor.execute {
+						try {
+							if (filter(file)) {
+								// Accurately capture size in bytes before deleting
+								val itemBytes = calculatePathBytes(file)
+								val tv: TextView? = addText?.invoke(context, file.absolutePath, 1)
+								bytesTotal.addAndGet(itemBytes)
+
+								if (delete) {
+									filesRemoved.incrementAndGet()
+									var isDeleted = if (file.isDirectory) file.deleteRecursively() else file.delete()
+									if (!isDeleted && prefs.useShizuku && ShizukuManager.hasPermission()) {
+										isDeleted = ShizukuManager.deleteElevated(file.absolutePath)
+									}
+									if (!isDeleted) {
+										tv?.setTextColor(Color.GRAY)
+									}
+								}
+							}
+						} catch (_: Exception) {
+						} finally {
+							val currentProgress = guiScanProgressProgress.incrementAndGet()
+							if (guiScanProgressMax > 0) {
+								updateProgress?.invoke(context, currentProgress * 100.0 / guiScanProgressMax)
+							}
 						}
 					}
 				}
-				guiScanProgressProgress = guiScanProgressProgress + 1
-				updateProgress!!.invoke(context,guiScanProgressProgress * 100.0 / guiScanProgressMax)
+				executor.shutdown()
+				try {
+					executor.awaitTermination(5, TimeUnit.MINUTES)
+				} catch (_: InterruptedException) {
+				}
+			} else {
+				// Sequential execution
+				for (file in filesSnapshot) {
+					if (filter(file)) {
+						val itemBytes = calculatePathBytes(file)
+						val tv: TextView? = addText?.invoke(context, file.absolutePath, 1)
+						bytesTotal.addAndGet(itemBytes)
+
+						if (delete) {
+							filesRemoved.incrementAndGet()
+							var isDeleted = if (file.isDirectory) file.deleteRecursively() else file.delete()
+							if (!isDeleted && prefs.useShizuku && ShizukuManager.hasPermission()) {
+								isDeleted = ShizukuManager.deleteElevated(file.absolutePath)
+							}
+							if (!isDeleted) {
+								tv?.setTextColor(Color.GRAY)
+							}
+						}
+					}
+					val currentProgress = guiScanProgressProgress.incrementAndGet()
+					if (guiScanProgressMax > 0) {
+						updateProgress?.invoke(context, currentProgress * 100.0 / guiScanProgressMax)
+					}
+				}
 			}
+
 			foundFiles = null
-			if (filesRemoved == 0) break
-			filesRemoved = 0
+			if (filesRemoved.get() == 0) break
+			filesRemoved.set(0)
 			++cycles
 		}
-		// cycle indicator
-		addText?.invoke(context,"Finished!",1)
+
+		addText?.invoke(context, "Finished!", 1)
 		isRunning = false
-		return kilobytesTotal
+		return bytesTotal.get()
 	}
 
 	private fun getRegexForFolder(folder: String): String {
@@ -248,7 +500,6 @@ class FileScanner(private val path: File, context: Context){
 	}
 
 	companion object {
-		// TODO remove local prefs objects, create setter for one instead
 		var isRunning = false
 		private val filters = ArrayList<String>()
 		private var blacklist: List<Regex> = emptyList()

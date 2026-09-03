@@ -19,14 +19,14 @@
 			android:summary="@string/whitelist_sum"
 			app:iconSpaceReserved="false" />
 		<SwitchPreferenceCompat
-			android:defaultValue="false"
+			android:defaultValue="true"
 			android:key="one_click"
 			android:persistent="true"
 			android:summary="@string/oneclick_sum"
 			android:title="@string/one_click_clean"
 			app:iconSpaceReserved="false" />
 		<SwitchPreferenceCompat
-			android:defaultValue="false"
+			android:defaultValue="true"
 			android:key="boot_cleanup"
 			android:persistent="true"
 			android:summary="@string/clean_boot_sum"
@@ -58,10 +58,29 @@
 		<SeekBarPreference
 			android:min="1"
 			android:max="10"
-			android:defaultValue="1"
+			android:defaultValue="3"
 			android:key="multi_run"
 			android:summary="@string/double_check_sum"
 			android:title="@string/double_check_title"
+			app:iconSpaceReserved="false"
+			app:showSeekBarValue="true" />
+	</PreferenceCategory>
+	<PreferenceCategory android:title="@string/parallel_processing_category" app:iconSpaceReserved="false">
+		<SwitchPreferenceCompat
+			android:defaultValue="true"
+			android:key="parallel_processing"
+			android:persistent="true"
+			android:summary="@string/parallel_search_delete_sum"
+			android:title="@string/parallel_search_delete_title"
+			app:iconSpaceReserved="false" />
+		<SeekBarPreference
+			android:min="1"
+			android:max="10"
+			android:defaultValue="4"
+			android:key="parallel_workers"
+			android:summary="@string/parallel_workers_sum"
+			android:title="@string/parallel_workers_title"
+			app:dependency="parallel_processing"
 			app:iconSpaceReserved="false"
 			app:showSeekBarValue="true" />
 	</PreferenceCategory>
@@ -74,19 +93,19 @@
 			android:title="@string/enable_generic_filter"
 			app:iconSpaceReserved="false" />
 		<SwitchPreferenceCompat
-			android:defaultValue="false"
+			android:defaultValue="true"
 			android:key="clean_empty_file"
 			android:persistent="true"
 			android:title="@string/delete_empty_files"
 			app:iconSpaceReserved="false" />
 		<SwitchPreferenceCompat
-			android:defaultValue="false"
+			android:defaultValue="true"
 			android:key="clean_empty_folder"
 			android:persistent="true"
 			android:title="@string/delete_empty_folders"
 			app:iconSpaceReserved="false" />
 		<SwitchPreferenceCompat
-			android:defaultValue="false"
+			android:defaultValue="true"
 			android:key="clean_corpse"
 			android:persistent="true"
 			android:summary="@string/corpse_summary"
@@ -98,6 +117,39 @@
 			android:persistent="true"
 			android:summary="@string/apk_sum"
 			android:title="@string/delete_apk_files"
+			app:iconSpaceReserved="false" />
+	</PreferenceCategory>
+	<PreferenceCategory android:title="@string/elevated_access_title" app:iconSpaceReserved="false">
+		<Preference
+			android:key="shizuku_status"
+			android:title="@string/shizuku_status_title"
+			android:summary="@string/shizuku_status_dead"
+			app:iconSpaceReserved="false" />
+		<SwitchPreferenceCompat
+			android:defaultValue="true"
+			android:key="use_shizuku"
+			android:persistent="true"
+			android:title="@string/use_shizuku_title"
+			android:summary="@string/use_shizuku_sum"
+			app:iconSpaceReserved="false" />
+		<SwitchPreferenceCompat
+			android:defaultValue="false"
+			android:key="clean_internal"
+			android:persistent="true"
+			android:title="@string/clean_internal_title"
+			android:summary="@string/clean_internal_sum"
+			app:iconSpaceReserved="false" />
+		<SwitchPreferenceCompat
+			android:defaultValue="true"
+			android:key="clean_sd_card"
+			android:persistent="true"
+			android:title="@string/clean_sd_card_title"
+			android:summary="@string/clean_sd_card_sum"
+			app:iconSpaceReserved="false" />
+		<Preference
+			android:key="adb_script_helper"
+			android:title="@string/adb_script_title"
+			android:summary="@string/adb_script_sum"
 			app:iconSpaceReserved="false" />
 	</PreferenceCategory>
 	<PreferenceCategory android:title="@string/other" app:iconSpaceReserved="false">

@@ -1,0 +1,6 @@
+{
+  "name": "LTE Cleaner",
+  "description": "An open source Android cleaner app to find and clean cache and junk files.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
